@@ -8,7 +8,7 @@ class FinanceApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("个人财务系统")
-        self.geometry("700x600")
+        self.geometry("800x650")
 
         self.current_frame = None  # 用来保存当前显示的Frame
         self.cookies = {}  # 用于存储登录时的 cookies
@@ -72,7 +72,7 @@ class AddAccountPage(tk.Frame):
         }
 
         try:
-            response = requests.post("http://127.0.0.1:8000/account/add_account/", json=payload,
+            response = requests.post("http://38.147.186.51:8000/account/add_account/", json=payload,
                                      cookies=self.master.cookies)
             response_data = response.json()
 
@@ -143,7 +143,7 @@ class EditAccountPage(tk.Frame):
 
     def fetch_account_details(self):
         try:
-            url = "http://127.0.0.1:8000/account/get_account_details/"
+            url = "http://38.147.186.51:8000/account/get_account_details/"
             payload = {"account_id": self.account_id}
 
             response = requests.post(url, json=payload, cookies=self.master.cookies)
@@ -179,7 +179,7 @@ class EditAccountPage(tk.Frame):
         }
 
         try:
-            response = requests.post("http://127.0.0.1:8000/account/update_account/", json=payload,
+            response = requests.post("http://38.147.186.51:8000/account/update_account/", json=payload,
                                      cookies=self.master.cookies)
             response_data = response.json()
 
@@ -241,7 +241,7 @@ class AccountPage(tk.Frame):
 
     def fetch_accounts(self):
         try:
-            response = requests.get("http://127.0.0.1:8000/account/get_user_accounts/", cookies=self.master.cookies)
+            response = requests.get("http://38.147.186.51:8000/account/get_user_accounts/", cookies=self.master.cookies)
             response_data = response.json()
 
             if response_data["code"] == 200:
@@ -275,7 +275,7 @@ class AccountPage(tk.Frame):
             }
 
             try:
-                response = requests.post("http://127.0.0.1:8000/account/delete_account/", json=payload,
+                response = requests.post("http://38.147.186.51:8000/account/delete_account/", json=payload,
                                          cookies=self.master.cookies)
                 response_data = response.json()
 
@@ -345,7 +345,7 @@ class AddBudgetPage(tk.Frame):
         }
 
         try:
-            response = requests.post("http://127.0.0.1:8000/budget/add_budget/", json=payload,
+            response = requests.post("http://38.147.186.51:8000/budget/add_budget/", json=payload,
                                      cookies=self.master.cookies)
             response_data = response.json()
 
@@ -427,7 +427,7 @@ class BudgetPage(tk.Frame):
             }
 
             try:
-                response = requests.post("http://127.0.0.1:8000/budget/delete_budget/", json=payload,
+                response = requests.post("http://38.147.186.51:8000/budget/delete_budget/", json=payload,
                                          cookies=self.master.cookies)
                 response_data = response.json()
 
@@ -444,7 +444,7 @@ class BudgetPage(tk.Frame):
 
     def fetch_budgets(self):
         try:
-            response = requests.get("http://127.0.0.1:8000/budget/get_user_budgets/", cookies=self.master.cookies)
+            response = requests.get("http://38.147.186.51:8000/budget/get_user_budgets/", cookies=self.master.cookies)
             response_data = response.json()
 
             if response_data["code"] == 200:
@@ -482,14 +482,67 @@ class RecordPage(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
+        self.trades = []
         self.create_widgets()
+        self.fetch_trades()
 
     def create_widgets(self):
         title_label = tk.Label(self, text="收支记录", font=("Arial", 24))
         title_label.pack(pady=50)
 
+        # 新增收支记录按钮
+        add_trade_button = tk.Button(self, text="新增收支记录", command=self.show_add_trade_page)
+        add_trade_button.pack(pady=10)
+
+        # 创建 Treeview 表格
+        columns = ("id", "account_name", "budget_name", "tradetype", "tradebalance", "traderemark")
+        self.tree = ttk.Treeview(self, columns=columns, show='headings', height=10)
+        self.tree.heading('id', text='交易ID')
+        self.tree.heading('account_name', text='账户名称')
+        self.tree.heading('budget_name', text='预算名称')
+        self.tree.heading('tradetype', text='交易类型')
+        self.tree.heading('tradebalance', text='交易金额')
+        self.tree.heading('traderemark', text='交易备注')
+
+        self.tree.column('id', width=100)
+        self.tree.column('account_name', width=150)
+        self.tree.column('budget_name', width=150)
+        self.tree.column('tradetype', width=100)
+        self.tree.column('tradebalance', width=100)
+        self.tree.column('traderemark', width=200)
+
+        self.tree.pack(pady=20)
+
         back_button = tk.Button(self, text="返回", command=self.go_back)
         back_button.pack(anchor="nw", padx=10, pady=10)
+
+    def show_add_trade_page(self):
+        self.master.switch_frame(AddTradePage)
+    def fetch_trades(self):
+        try:
+            response = requests.get("http://38.147.186.51:8000/trade/get_trades/", cookies=self.master.cookies)
+            response_data = response.json()
+
+            if response_data["code"] == 200:
+                self.trades = response_data["data"]
+                self.populate_tree()
+            else:
+                messagebox.showerror("获取交易记录失败", response_data["message"])
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("请求失败", f"无法连接到服务器：{e}")
+
+    def populate_tree(self):
+        self.tree.delete(*self.tree.get_children())
+        for trade in self.trades:
+            self.tree.insert("", "end",
+                             values=(
+                                 trade['id'],
+                                 trade['account_name'],
+                                 trade['budget_name'] if trade['budget_name'] else "",
+                                 trade['tradetype'],
+                                 trade['tradebalance'],
+                                 trade['traderemark']
+                             ))
 
     def go_back(self):
         self.master.switch_frame(UserMenuPage)
@@ -554,7 +607,7 @@ class RegisterPage(tk.Frame):
             }
             # 发送 POST 请求到后端
             try:
-                response = requests.post("http://127.0.0.1:8000/userpro/register/", json=payload)
+                response = requests.post("http://38.147.186.51:8000/userpro/register/", json=payload)
                 response_data = response.json()
 
                 # 处理响应
@@ -612,7 +665,7 @@ class LoginPage(tk.Frame):
 
         # 登录请求
         try:
-            response = requests.post("http://127.0.0.1:8000/userpro/login/", json=payload)
+            response = requests.post("http://38.147.186.51:8000/userpro/login/", json=payload)
             response_data = response.json()
 
             # 判断响应的状态码
@@ -669,7 +722,7 @@ class EditBudgetPage(tk.Frame):
 
     def fetch_budget_details(self):
         try:
-            url = "http://127.0.0.1:8000/budget/get_budget_detail/"
+            url = "http://38.147.186.51:8000/budget/get_budget_detail/"
             payload = {"budget_id": self.budget_id}
 
             response = requests.post(url, json=payload, cookies=self.master.cookies)
@@ -709,7 +762,7 @@ class EditBudgetPage(tk.Frame):
         }
 
         try:
-            response = requests.post("http://127.0.0.1:8000/budget/update_budget/", json=payload,
+            response = requests.post("http://38.147.186.51:8000/budget/update_budget/", json=payload,
                                      cookies=self.master.cookies)
             response_data = response.json()
 
@@ -756,10 +809,8 @@ class UserMenuPage(tk.Frame):
         record_button.pack(pady=10)
 
     def logout(self):
-        """退出登录，调用后端接口"""
         try:
-            # 发送 GET 请求以退出登录
-            response = requests.get("http://127.0.0.1:8000/userpro/logout/", cookies=self.master.cookies)
+            response = requests.get("http://38.147.186.51:8000/userpro/logout/", cookies=self.master.cookies)
             response_data = response.json()
 
             if response_data["code"] == 200:
@@ -832,7 +883,7 @@ class ProfilePage(tk.Frame):
 
     def fetch_user_info(self):
         try:
-            response = requests.get("http://127.0.0.1:8000/userpro/get_user_info/", cookies=self.master.cookies)
+            response = requests.get("http://38.147.186.51:8000/userpro/get_user_info/", cookies=self.master.cookies)
             response_data = response.json()
 
             if response_data["code"] == 200:
@@ -877,7 +928,7 @@ class ProfilePage(tk.Frame):
         }
 
         try:
-            response = requests.post("http://127.0.0.1:8000/userpro/update_profile/", json=payload,
+            response = requests.post("http://38.147.186.51:8000/userpro/update_profile/", json=payload,
                                      cookies=self.master.cookies)
             response_data = response.json()
 
@@ -892,6 +943,84 @@ class ProfilePage(tk.Frame):
 
     def go_back(self):
         self.master.switch_frame(UserMenuPage)
+
+
+class AddTradePage(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        self.create_widgets()
+
+    def create_widgets(self):
+        title_label = tk.Label(self, text="新增收支记录", font=("Arial", 24))
+        title_label.pack(pady=50)
+
+        account_id_label = tk.Label(self, text="账户ID", font=("Arial", 12))
+        account_id_label.pack(pady=5)
+        self.account_id_entry = tk.Entry(self, font=("Arial", 12))
+        self.account_id_entry.pack(pady=5)
+
+        budget_id_label = tk.Label(self, text="预算ID", font=("Arial", 12))
+        budget_id_label.pack(pady=5)
+        self.budget_id_entry = tk.Entry(self, font=("Arial", 12))
+        self.budget_id_entry.pack(pady=5)
+
+        traderemark_label = tk.Label(self, text="交易备注", font=("Arial", 12))
+        traderemark_label.pack(pady=5)
+        self.traderemark_entry = tk.Entry(self, font=("Arial", 12))
+        self.traderemark_entry.pack(pady=5)
+
+        tradebalance_label = tk.Label(self, text="交易金额", font=("Arial", 12))
+        tradebalance_label.pack(pady=5)
+        self.tradebalance_entry = tk.Entry(self, font=("Arial", 12))
+        self.tradebalance_entry.pack(pady=5)
+
+        tradetype_label = tk.Label(self, text="交易类型", font=("Arial", 12))
+        tradetype_label.pack(pady=5)
+        self.tradetype_entry = tk.Entry(self, font=("Arial", 12))
+        self.tradetype_entry.pack(pady=5)
+
+        submit_button = tk.Button(self, text="提交", font=("Arial", 14), command=self.submit_trade)
+        submit_button.pack(pady=20)
+
+        back_button = tk.Button(self, text="返回", command=self.go_back)
+        back_button.pack(anchor="nw", padx=10, pady=10)
+
+    def submit_trade(self):
+        account_id = self.account_id_entry.get()
+        budget_id = self.budget_id_entry.get()
+        traderemark = self.traderemark_entry.get()
+        tradebalance = self.tradebalance_entry.get()
+        tradetype = self.tradetype_entry.get()
+
+        if not account_id or not budget_id or not traderemark or not tradebalance or not tradetype:
+            messagebox.showerror("错误", "所有字段都是必填的")
+            return
+
+        payload = {
+            "account_id": int(account_id),
+            "budget_id": int(budget_id),
+            "traderemark": traderemark,
+            "tradebalance": float(tradebalance),
+            "tradetype": tradetype
+        }
+
+        try:
+            response = requests.post("http://38.147.186.51:8000/trade/add_trade/", json=payload,
+                                     cookies=self.master.cookies)
+            response_data = response.json()
+
+            if response_data["code"] == 200:
+                messagebox.showinfo("交易记录创建成功", response_data["message"])
+                self.master.switch_frame(RecordPage)
+            else:
+                messagebox.showerror("交易记录创建失败", response_data["message"])
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("请求失败", f"无法连接到服务器：{e}")
+
+    def go_back(self):
+        self.master.switch_frame(RecordPage)
 
 
 if __name__ == "__main__":
